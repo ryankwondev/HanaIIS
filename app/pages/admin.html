@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Control Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Pretendard-Regular';
+            src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/noonfonts_2107@1.1/Pretendard-Regular.woff') format('woff');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        body {
+            font-family: 'Pretendard-Regular', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+<div class="container mx-auto p-5">
+    <h1 class="text-3xl font-bold text-center mb-6">HanaIIS Admin Control Panel</h1>
+    <h2 class="text-2xl font-bold mb-4">조회(이벤트) 추가</h2>
+    <form id="uploadForm" class="space-y-4">
+        <div>
+            <label for="eventName" class="block text-sm font-medium text-gray-700">이벤트 이름:</label>
+            <input type="text" id="eventName" name="eventName" required
+                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                   placeholder="2024학년도 1학기 중간고사 고사장 조회">
+        </div>
+        <div>
+            <label for="collectionName" class="block text-sm font-medium text-gray-700">콜렉션 이름:</label>
+            <input type="text" id="collectionName" name="collectionName" pattern="\d{8}" required
+                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+        <div>
+            <label for="searchKey" class="block text-sm font-medium text-gray-700">검색 키 선택:</label>
+            <select id="searchKey" name="searchKey"
+                    class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <option value="student_id">student_id (고유학번)</option>
+                <option value="code">code (조회용 개인번호)</option>
+            </select>
+        </div>
+        <div>
+            <label for="adminPassword" class="block text-sm font-medium text-gray-700">어드민 비밀번호:</label>
+            <input type="password" id="adminPassword" name="adminPassword" required
+                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                   placeholder="Enter admin password">
+        </div>
+        <div>
+            <label for="fileUpload" class="block text-sm font-medium text-gray-700">CSV 파일 업로드:</label>
+            <input type="file" id="fileUpload" name="fileUpload" accept=".csv" required
+                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+        </div>
+        <div class="flex justify-end">
+            <button type="button" onclick="uploadCSV()"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                업로드
+            </button>
+        </div>
+    </form>
+    <hr class="my-8">
+    <div>
+        <h2 class="text-2xl font-bold mb-4">조회(이벤트) 삭제</h2>
+        <div>
+            <label for="eventList" class="block text-sm font-medium text-gray-700">이벤트 선택:</label>
+            <select id="eventList"
+                    class="block w-full mt-1 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></select>
+        </div>
+        <div class="mt-4">
+            <label for="deleteAdminPassword" class="block text-sm font-medium text-gray-700">어드민 비밀번호:</label>
+            <input type="password" id="deleteAdminPassword" required
+                   class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                   placeholder="Enter admin password for deletion">
+        </div>
+        <button type="button" onclick="deleteEvent()"
+                class="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            이벤트 삭제
+        </button>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchEvents();
+        const today = new Date();
+        const formattedDate = today.getFullYear().toString() + ('0' + (today.getMonth() + 1)).slice(-2) + ('0' + today.getDate()).slice(-2);
+        document.getElementById('collectionName').value = formattedDate;
+    });
+
+    async function uploadCSV() {
+        const fileInput = document.getElementById('fileUpload');
+        if (fileInput.files.length > 0) {
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const text = e.target.result;
+                const csvData = csvToJSON(text);
+                const eventData = {
+                    event_name: document.getElementById('eventName').value,
+                    collection_name: document.getElementById('collectionName').value,
+                    search_key: document.getElementById('searchKey').value,
+                    admin_password: document.getElementById('adminPassword').value,
+                    csv_data: csvData
+                };
+                try {
+                    const response = await fetch('/api/event', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(eventData)
+                    });
+                    if (response.ok) {
+                        alert('업로드 성공');
+                        fetchEvents(); // Refresh the event list
+                    } else {
+                        alert('업로드 실패');
+                    }
+                } catch (error) {
+                    alert('업로드 중 오류 발생');
+                }
+            };
+            reader.readAsText(fileInput.files[0]);
+        } else {
+            alert('Please select a CSV file to upload.');
+        }
+    }
+
+    function csvToJSON(csv) {
+        const lines = csv.split('\n');
+        const result = [];
+        const headers = lines[0].split(',');
+
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i]) continue;
+            const obj = {};
+            const currentline = lines[i].split(',');
+
+            for (let j = 0; j < headers.length; j++) {
+                obj[headers[j]] = currentline[j];
+            }
+            result.push(obj);
+        }
+        return result;
+    }
+
+    async function fetchEvents() {
+        try {
+            const response = await fetch('/api/event_list');
+            if (response.ok) {
+                const events = await response.json();
+                const select = document.getElementById('eventList');
+                select.innerHTML = ''; // Clear existing options
+                events.forEach(event => {
+                    let option = document.createElement('option');
+                    option.value = event.collection;
+                    option.textContent = event.event + ' (' + event.collection + ')';
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.log('Failed to fetch events:', error);
+        }
+    }
+
+    async function deleteEvent() {
+        const eventID = document.getElementById('eventList').value;
+        const adminPassword = document.getElementById('deleteAdminPassword').value;
+        try {
+            const response = await fetch(`/api/event/${eventID}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({admin_password: adminPassword})
+            });
+            if (response.ok) {
+                alert('이벤트 삭제 성공');
+                fetchEvents(); // Refresh the event list
+            } else {
+                alert('이벤트 삭제 실패');
+            }
+        } catch (error) {
+            alert('이벤트 삭제 중 오류 발생');
+        }
+    }
+</script>
+</body>
+</html>
